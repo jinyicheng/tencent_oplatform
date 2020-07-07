@@ -15,52 +15,22 @@ class Auth
 {
     use CommonTrait;
 
-    private $open_id = null;
+    private $open_id = '';
 
-    private $access_token = null;
-
-    private $auto_create_access_token=false;
-
-    /**
-     * 获取access_token
-     * @param $open_id
-     * @return mixed
-     */
-    public function getAccessToken($open_id = null)
-    {
-        if (is_null($open_id)) {
-            $open_id = $this->getOpenId();
-        }
-        /**
-         * 尝试从redis中获取access_token
-         */
-        $redis = Redis::db($this->options['app_redis_cache_db_number']);
-        $access_token_key = $this->options['app_redis_cache_key_prefix'] . ':access_token:' . $this->options['app_id'] . ':' . $open_id;
-        $access_token = $redis->get($access_token_key);
-        $this->checkAccessToken($open_id, $access_token);
-        return $this->access_token;
-    }
-
-    /**
-     * @return null
-     */
-    public function getOpenId()
-    {
-        return $this->open_id;
-    }
+    private $access_token = '';
 
     /**
      * 检查access_token是否有效
      * @param $open_id
      * @param $access_token
-     * @return bool
+     * @throws OpenPlatformException
      */
     private function checkAccessToken($open_id, $access_token)
     {
+        /**
+         * 请求接口检查access_token，如果无效将被异常拦截，此时将会尝试刷新access_token
+         */
         try {
-            /**
-             * 请求接口
-             */
             Request::get(
                 "https://api.weixin.qq.com/sns/auth",
                 [
@@ -71,21 +41,45 @@ class Auth
                 2000
             );
         } catch (OpenPlatformException $exception) {
-            if ($exception->getCode() == 40003) {
-                return false;
-            }
+            $this->refreshAccessToken($open_id);
         }
-        return true;
+
     }
 
-//    /**
-//     * 获取open_id
-//     * @return mixed
-//     */
-//    public function getOpenId()
-//    {
-//        return $this->open_id;
-//    }
+    /**
+     * 获取access_token
+     * @param $open_id
+     * @return mixed
+     * @throws OpenPlatformException
+     */
+    public function getAccessToken($open_id)
+    {
+        if (!is_null($open_id)) {
+            $this->open_id = $open_id;
+        }
+        /**
+         * 尝试从redis中获取access_token
+         */
+        $redis = Redis::db($this->options['app_redis_cache_db_number']);
+        $access_token_key = $this->options['app_redis_cache_key_prefix'] . ':access_token:' . $this->options['app_id'] . ':' . $open_id;
+        $this->access_token = $redis->get($access_token_key);
+        /**
+         * 检查access_token是否有效
+         */
+        $this->checkAccessToken($this->open_id, $this->access_token);
+        /**
+         * 返回access_token
+         */
+        return $this->access_token;
+    }
+
+    /**
+     * @return string
+     */
+    public function getOpenId()
+    {
+        return $this->open_id;
+    }
 
     /**
      * 创建access_token
@@ -116,7 +110,7 @@ class Auth
         $this->cacheAccessToken($response['openid'], $response['access_token'], $response['expires_in']);
         $this->cacheRefreshToken($response['openid'], $response['refresh_token']);
         $this->open_id = $response['openid'];
-        return $response['access_token'];
+        return $this;
     }
 
     /**
@@ -127,6 +121,7 @@ class Auth
      */
     private function cacheAccessToken($openid, $access_token, $expires_in)
     {
+        $this->access_token = $access_token;
         /**
          * 尝试从redis中获取access_token
          */
@@ -158,9 +153,7 @@ class Auth
      */
     public function refreshAccessToken($openid)
     {
-        $redis = Redis::db($this->options['app_redis_cache_db_number']);
-        $refresh_token_key = $this->options['app_redis_cache_key_prefix'] . ':refresh_token:' . $this->options['app_id'] . ':' . $openid;
-        $refresh_token = $redis->get($refresh_token_key);
+        $refresh_token = $this->getRefreshToken($openid);
         /**
          * 请求接口
          */
@@ -174,25 +167,8 @@ class Auth
             [],
             2000
         );
-        $this->cacheAccessToken();
-        /**
-         * 尝试从redis中获取access_token
-         */
-        $redis = Redis::db($this->options['app_redis_cache_db_number']);
-        $access_token_key = $this->options['app_redis_cache_key_prefix'] . ':access_token:' . $this->options['app_id'] . ':' . $response['openid'];
-        $redis->hMSet($access_token_key, $response);
-        $redis->expire($access_token_key, $response['expires_in']);
-        return $this;
-    }
-
-    /**
-     * 设置自动创建access_token
-     * @param bool $auto_create_access_token
-     * @return Auth
-     */
-    public function setAutoCreateAccessToken($auto_create_access_token)
-    {
-        $this->auto_create_access_token = $auto_create_access_token;
+        $this->cacheAccessToken($openid, $response['access_token'], $response['expires_in']);
+        $this->removeRefreshToken($openid);
         return $this;
     }
 
@@ -223,5 +199,35 @@ class Auth
         $redis = Redis::db($this->options['app_redis_cache_db_number']);
         $refresh_token_key = $this->options['app_redis_cache_key_prefix'] . ':refresh_token:' . $this->options['app_id'] . ':' . $openid;
         $redis->del($refresh_token_key);
+    }
+
+    /**
+     * 获取用户信息
+     * @param $open_id
+     * @return array
+     * @throws OpenPlatformException
+     */
+    public function getUserInfo($open_id = null)
+    {
+        if (!is_null($open_id)) {
+            $this->open_id = $open_id;
+        }
+        /**
+         * 根据用户open_id获取access_token
+         */
+        $access_token = $this->getAccessToken($this->open_id);
+        /**
+         * 请求接口
+         */
+        return Request::get(
+            "https://api.weixin.qq.com/sns/userinfo",
+            [
+                'access_token' => $access_token,
+                'openid' => $this->open_id,
+                'lang' => 'zh_CN'
+            ],
+            [],
+            2000
+        );
     }
 }
