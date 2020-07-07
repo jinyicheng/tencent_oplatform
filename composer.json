@@ -1,0 +1,42 @@
+{
+    "name": "jinyicheng/tencent_oplatform",
+    "description": "腾讯开放平台，微信开放平台，QQ开放平台",
+    "keywords": [
+        "tencent",
+        "open platform",
+        "thinkphp5",
+        "thinkphp6",
+        "laravel6",
+        "laravel7",
+        "lumen6",
+        "lumen7"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "jinyicheng",
+            "email": "234067496@qq.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.1.0",
+        "jinyicheng/redis": "^2.0",
+        "ext-redis": "*",
+        "ext-curl": "*",
+        "ext-json": "*",
+        "ext-fileinfo": "*",
+        "ext-openssl": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "jinyicheng\\tencent_oplatform\\": "src/"
+        }
+    },
+    "extra": {
+        "think": {
+            "config": {
+                "wechat_open_platform": "src/wechat_open_platform/config.php"
+            }
+        }
+    }
+}
