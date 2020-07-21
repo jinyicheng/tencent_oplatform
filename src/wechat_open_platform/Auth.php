@@ -141,8 +141,8 @@ class Auth
          * 尝试从redis中获取access_token
          */
         $redis = Redis::db($this->options['app_redis_cache_db_number']);
-        $access_token_key = $this->options['app_redis_cache_key_prefix'] . ':access_token:' . $this->options['app_id'] . ':' . $openid;
-        $redis->set($access_token_key, $refresh_token);
+        $refresh_token_key = $this->options['app_redis_cache_key_prefix'] . ':refresh_token:' . $this->options['app_id'] . ':' . $openid;
+        $redis->set($refresh_token_key, $refresh_token);
     }
 
     /**
