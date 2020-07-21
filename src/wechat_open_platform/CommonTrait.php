@@ -29,7 +29,6 @@ trait CommonTrait
         if ($options === false || $options === []) throw new InvalidArgumentException('配置不存在');
         if (!isset($options['app_id'])) throw new InvalidArgumentException('配置下没有找到app_id设置');
         if (!isset($options['app_secret'])) throw new InvalidArgumentException('配置下没有找到app_secret设置');
-        if (!isset($options['app_token'])) throw new InvalidArgumentException('配置下没有找到app_token设置');
         if (!isset($options['app_redis_cache_db_number'])) throw new InvalidArgumentException('配置下没有找到app_redis_cache_db_number设置');
         if (!isset($options['app_redis_cache_key_prefix'])) throw new InvalidArgumentException('配置下没有找到app_redis_cache_key_prefix设置');
         $hash = md5(json_encode($options));
