@@ -127,7 +127,7 @@ class Auth
          */
         $redis = Redis::db($this->options['app_redis_cache_db_number']);
         $access_token_key = $this->options['app_redis_cache_key_prefix'] . ':access_token:' . $this->options['app_id'] . ':' . $openid;
-        $redis->setex($access_token_key, $access_token, $expires_in);
+        $redis->setex($access_token_key, $expires_in, $access_token);
     }
 
     /**
